@@ -1,4 +1,4 @@
-This repository contains the **anonymous code release** accompanying the work: *Multi-Task GRPO: Reliable LLM Reasoning Across Tasks*.
+This repository contains the **code release** accompanying the work: *Multi-Task GRPO: Reliable LLM Reasoning Across Tasks*.
 
 ---
 
@@ -73,7 +73,3 @@ export WANDB_ENTITY=your_entity_here
 *   **Model Downloads:** Pretrained models (e.g., Qwen2.5) are configured to download automatically from Hugging Face.
 
 ---
-
-## License
-
-This code is released for academic review purposes. A full license and attribution will be included in the de-anonymized release.
