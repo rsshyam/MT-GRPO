@@ -65,10 +65,13 @@ jobs:
       - name: Check for accidental broad gitignore patterns
         run: |
           echo "=== Checking .gitignore for dangerous glob patterns ==="
-          # Patterns like *core (no dot) accidentally match reward_score, hardcore, etc.
-          if grep -nP '^[*][^./]' .gitignore; then
+          # Flag patterns like '*core' — '*' followed by only plain word characters, no dot.
+          # These accidentally match directory names (e.g. '*core' matches 'reward_score').
+          # Safe patterns like '*.core', '*$py.class', '*~' are NOT matched by this regex.
+          if grep -nP '^[*][a-zA-Z][a-zA-Z0-9_]*$' .gitignore; then
             echo "❌ Found potentially dangerous gitignore glob(s) above."
-            echo "   A pattern like '*core' matches 'reward_score'. Use '*.core' instead."
+            echo "   A pattern like '*core' matches any path ending in 'core', including 'reward_score'."
+            echo "   Use '*.core' (with a dot) to match only files with that extension."
             exit 1
           fi
           echo "✅ No dangerous gitignore patterns found."
