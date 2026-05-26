@@ -1,0 +1,95 @@
+name: Verify release completeness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-required-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all required source files are present and not gitignored
+        run: |
+          echo "=== Checking .gitignore does not accidentally exclude source files ==="
+
+          REQUIRED_FILES=(
+            "verl/verl/utils/reward_score/__init__.py"
+            "verl/verl/utils/reward_score/utils.py"
+            "verl/verl/utils/reward_score/arc.py"
+            "verl/verl/utils/reward_score/zebra.py"
+            "verl/verl/utils/reward_score/countdown.py"
+            "verl/verl/utils/reward_score/gsm8k.py"
+            "verl/verl/utils/reward_score/deepscaler/__init__.py"
+            "verl/verl/utils/reward_score/deepscaler/math_utils.py"
+            "verl/verl/utils/reward_score/deepscaler/reward_type.py"
+            "verl/verl/trainer/ppo/ray_trainer.py"
+            "verl/verl/trainer/ppo/core_algos.py"
+            "scripts/exp-1/main/run_mt-grpo_0.25.sh"
+            "scripts/exp-2/main/run_mt-grpo_0.3.sh"
+            "installation.sh"
+          )
+
+          MISSING=()
+          IGNORED=()
+
+          for f in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$f" ]; then
+              MISSING+=("$f")
+            fi
+            # Check if git would ignore this file (would be excluded from git add .)
+            if git check-ignore -q "$f" 2>/dev/null; then
+              IGNORED+=("$f")
+            fi
+          done
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "❌ MISSING files:"
+            printf '  %s\n' "${MISSING[@]}"
+          fi
+
+          if [ ${#IGNORED[@]} -gt 0 ]; then
+            echo "❌ Files present on disk but GITIGNORED (would be excluded from git add .):"
+            printf '  %s\n' "${IGNORED[@]}"
+          fi
+
+          if [ ${#MISSING[@]} -eq 0 ] && [ ${#IGNORED[@]} -eq 0 ]; then
+            echo "✅ All required files present and tracked."
+          else
+            exit 1
+          fi
+
+      - name: Check for accidental broad gitignore patterns
+        run: |
+          echo "=== Checking .gitignore for dangerous glob patterns ==="
+          # Patterns like *core (no dot) accidentally match reward_score, hardcore, etc.
+          if grep -nP '^[*][^./]' .gitignore; then
+            echo "❌ Found potentially dangerous gitignore glob(s) above."
+            echo "   A pattern like '*core' matches 'reward_score'. Use '*.core' instead."
+            exit 1
+          fi
+          echo "✅ No dangerous gitignore patterns found."
+
+      - name: Dry-run import check
+        run: |
+          echo "=== Checking reward_score modules are importable ==="
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu 2>/dev/null || true
+          # Just check the files parse as valid Python (no heavy deps needed)
+          python3 -c "
+          import ast, sys, pathlib
+          files = list(pathlib.Path('verl/verl/utils/reward_score').rglob('*.py'))
+          errors = []
+          for f in files:
+              try:
+                  ast.parse(f.read_text())
+              except SyntaxError as e:
+                  errors.append(f'{f}: {e}')
+          if errors:
+              print('❌ Syntax errors found:')
+              for e in errors: print(' ', e)
+              sys.exit(1)
+          print(f'✅ All {len(files)} reward_score Python files parse cleanly.')
+          "

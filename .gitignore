@@ -6,7 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
-*core
+# core dumps (*.core, core) — NOT reward_score!
+*.core
+core
 
 # Distribution / packaging
 .Python
